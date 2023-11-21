@@ -163,7 +163,7 @@ class TimePlanner(QWidget):
 
     def add_task(self):
         date = self.get_date()
-        row = self.tasks_info.currentRow()
+        row = self.tasks_info.rowCount() + 1
         title = "Add task"
         name, ok = QInputDialog.getText(self, " ", title)
 
@@ -173,18 +173,21 @@ class TimePlanner(QWidget):
                 if task['name'] == name:
                     print(f"A task with the name '{name}' already exists.")
                     return False
-
-            self.tasks.append({
+            new_task = {
                 'name' : name, 
                 'created' : QDateTime.currentMSecsSinceEpoch(),
-                'total_time_spent' : 0,
-                'today_time_spent' : []
-            })
+                'today_time_spent' : [],
+                'total_time_spent' : 0
+            }
+            self.tasks.append(new_task)
 
             item = QListWidgetItem(name)
             color = QColor(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
             item.setBackground(color)
-            self.tasks_info.addItem(item)
+
+            # Update all
+            self.populate_tasks_info_table(self.tasks)
+
             self.calendar.setDateTextFormat(QDate.fromString(date, "ddMMyyyy"), self.fmt)
 
     def remove_task(self):
