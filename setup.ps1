@@ -26,5 +26,3 @@ if (Test-Path $VenvDir -PathType Container) {
 
 Prepare-Env
 pip install -r requirements.txt
-Remove-Item -Path dist\* -Force -Recurse
-pyinstaller main.py --onefile --noconfirm --clean --workpath=build --distpath=dist --windowed --name=TimePlanner.exe --icon=icons\icon.png

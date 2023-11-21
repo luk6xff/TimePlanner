@@ -25,7 +25,7 @@ class TimePlanner(QWidget):
     def __init__(self, width, height):
         super().__init__()
         folder = path.dirname(__file__)
-        self.icon_folder = path.join(folder, "icons")
+        self.icon_folder = path.join(folder, "media")
 
         self.setWindowTitle("Planner")
         self.setWindowIcon(QtGui.QIcon(path.join(self.icon_folder, 'icon.png')))
@@ -291,9 +291,9 @@ class TimePlanner(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyleSheet(STYLESHEET)
-    folder = path.dirname(__file__)
-    icon_folder = path.join(folder, "icons")
-    app.setWindowIcon(QtGui.QIcon(path.join(icon_folder, 'icon.png')))
+    # folder = path.dirname(__file__)
+    # icon_folder = path.join(folder, "media")
+    # app.setWindowIcon(QtGui.QIcon(path.join(icon_folder, 'icon.ico')))
     screen = app.primaryScreen()
     size = screen.size()
     window = TimePlanner(size.width(), size.height())
