@@ -224,7 +224,7 @@ class TimePlanner(QWidget):
                                                 QLineEdit.Normal, item.text())
                 if ok and new_name:
                     self.tasks[current_row]['name'] = new_name
-                    item.setText(new_name)
+                    self.tasks_info.item(current_row, 0).setText(new_name)
 
     def restart_current_task_time_counting(self):
         ''' Restart counting for a given task ''' 

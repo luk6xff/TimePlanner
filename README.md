@@ -18,3 +18,6 @@ pip install -r requirements.txt
 ```ps
 .\deploy.ps1
 ```
+
+## App
+![alt text](media/TimePlanner.png "TimePlanner application")
