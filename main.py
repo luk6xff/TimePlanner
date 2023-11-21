@@ -244,10 +244,6 @@ class TimePlanner(QWidget):
             self.tasks[self.current_task_status['index']]['total_time_spent'] = QDateTime.currentSecsSinceEpoch() - self.current_task_status['last_restart_time_secs'] + self.current_task_status['last_total_time_secs']
             # Check if today stats exist for the task
             if date in self.tasks[self.current_task_status['index']]['today_time_spent']:
-                print(f"The date {date} exists in the dict.")
-            else:
-                print(f"The date {date} does not exist in the dict.")
-            if date in self.tasks[self.current_task_status['index']]['today_time_spent']:
                 self.tasks[self.current_task_status['index']]['today_time_spent'][date] = QDateTime.currentSecsSinceEpoch() - self.current_task_status['last_restart_time_secs'] + self.current_task_status['last_today_time_secs']
             else:
                 self.tasks[self.current_task_status['index']]['today_time_spent'].update({date: 0})
