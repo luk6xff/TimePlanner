@@ -3,8 +3,8 @@ from datetime import datetime
 import json
 from PySide6.QtWidgets import (QApplication, QWidget, QCalendarWidget, QLabel,
                               QHBoxLayout, QPushButton, QVBoxLayout, QLineEdit,
-                              QListWidget, QMessageBox, QInputDialog, QLCDNumber,
-                              QListWidgetItem)
+                              QListWidget, QMessageBox, QInputDialog,
+                              QListWidgetItem, QTableWidget, QTableWidgetItem, QHeaderView)
 from PySide6.QtCore import QDate, QDateTime, Qt, QTimer, QTime, QSize
 from PySide6 import QtGui
 from PySide6.QtGui import QTextCharFormat, QColor, QPixmap
@@ -17,9 +17,9 @@ TASKS_DATA_STORAGE=path.join(path.dirname(__file__), "tasks.json")
 
 class TimePlanner(QWidget):
     # keep the current time as class variable for reference
-    currentDay = str(datetime.now().day).rjust(2, '0')
-    currentMonth = str(datetime.now().month).rjust(2, '0')
-    currentYear = str(datetime.now().year).rjust(2, '0')
+    current_day = str(datetime.now().day).rjust(2, '0')
+    current_month = str(datetime.now().month).rjust(2, '0')
+    current_year = str(datetime.now().year).rjust(2, '0')
 
     def __init__(self, width, height):
         super().__init__()
@@ -29,7 +29,7 @@ class TimePlanner(QWidget):
         self.setWindowTitle("Planner")
         self.setWindowIcon(QtGui.QIcon(path.join(self.icon_folder, 'icon.png')))
 
-        self.setGeometry(width // 4, height // 4, width // 2, height // 2)
+        self.setGeometry(width // 6, height // 6, width // 3, height // 3)
         self.current_task = 0
 
         # Check if tasks storage file exists, if it does load the data from it
@@ -45,35 +45,29 @@ class TimePlanner(QWidget):
         self.init_ui()
 
     def init_ui(self):
+        # Calendar
         self.calendar = QCalendarWidget()
         self.calendar.setGridVisible(True)
-
+        #self.calendar.selectionChanged.connect(self.populate_tasks_info_table(self.tasks)) #LU_TODO
+        self.calendar.selectionChanged.connect(self.label_date)
+        self.calendar.selectionChanged.connect(self.highlight_first_item)
         # don't allow going back to past months in calendar
-        self.calendar.setMinimumDate(QDate(int(self.currentYear), int(self.currentMonth), 1))
+        self.calendar.setMinimumDate(QDate(int(self.current_year), int(self.current_month), 1))
 
-        # format for dates in calendar that have tasks
+        # Format for dates in calendar that have tasks
         self.fmt = QTextCharFormat()
         self.fmt.setBackground(QColor(255, 165, 0, 100))
 
-        # format for the current day
+        # Format for the current day
         cur_fmt = QTextCharFormat()
         cur_fmt.setBackground(QColor(0, 255, 90, 70))
 
-        # format to change back to if all tasks are deleted
+        # Format to change back to if all tasks are deleted
         self.del_fmt = QTextCharFormat()
         self.del_fmt.setBackground(Qt.transparent)
 
-        # # Show all the tasks
-        # cur = QDate.currentDate()
-        # for date in list(self.tasks.keys()):
-        #     check_date = QDate.fromString(date, "yyyyMMdd")
-        #     if cur.daysTo(check_date) <= 0 and cur != check_date:
-        #         self.tasks.pop(date)
-        #     else:
-        #         self.calendar.setDateTextFormat(check_date, self.fmt)
-
         # Mark current day in calendar
-        current = self.currentDay + self.currentMonth + self.currentYear
+        current = self.current_day + self.current_month + self.current_year
         self.calendar.setDateTextFormat(QDate.fromString(current, "ddMMyyyy"), cur_fmt)
 
         # Buttons
@@ -92,29 +86,31 @@ class TimePlanner(QWidget):
         calendar_button.setIconSize(pixmap.size())
         calendar_button.clicked.connect(self.show_calendar)
 
-        self.calendar.selectionChanged.connect(self.show_tasks_list)
-        self.calendar.selectionChanged.connect(self.label_date)
-        self.calendar.selectionChanged.connect(self.highlight_first_item)
+        # Table widget
+        self.tasks_info = QTableWidget()
+        self.tasks_info.setColumnCount(3)
+        #self.tasks_info.setStyleSheet("QTableView::item {height: 40px;}")
+        self.tasks_info.setHorizontalHeaderLabels(["Name", "Today's Time Spent", "Total Time Spent"])
+        # Set the columns to stretch equally
+        for i in range(self.tasks_info.columnCount()):
+            self.tasks_info.horizontalHeader().setSectionResizeMode(i, QHeaderView.Stretch)
+        self.tasks_info.horizontalHeader().setStretchLastSection(True)
+        # Connect the itemClicked signal to the slot for handling row selection
+        self.tasks_info.itemClicked.connect(self.handle_task_item_clicked)
+        self.populate_tasks_info_table(self.tasks)
 
-        self.tasks_list = QListWidget()
-        self.tasks_list.setSortingEnabled(True)
-        self.tasks_list.setStyleSheet("QListView::item {height: 40px;}")
-
+        # Date label
         self.label = QLabel()
         label_font = QtGui.QFont("Gabriola", 18)
         self.label.setFont(label_font)
         self.label_date()
-        self.show_tasks_list()
 
-        # Set up a timer that automatically updates every second
-        self.lcd = QLCDNumber()
-        self.lcd.setSegmentStyle(QLCDNumber.Filled)
-        self.lcd.setMinimumWidth(80)
-        timer = QTimer(self)
-        timer.timeout.connect(self.show_time)
-        timer.start(1000)
-        self.show_time()
+        # QTimer to update the time every second
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_current_task_time)
+        self.timer.start(1000)
 
+        # Layouts
         hbox1 = QHBoxLayout()
         hbox1.addStretch(1)
         hbox1.addWidget(self.label)
@@ -126,15 +122,10 @@ class TimePlanner(QWidget):
         hbox2.addWidget(del_button)
         hbox2.addWidget(calendar_button)
 
-        hbox3 = QHBoxLayout()
-        hbox3.addStretch(1)
-        hbox3.addWidget(self.lcd)
-
         vbox = QVBoxLayout()
         vbox.addLayout(hbox1)
-        vbox.addWidget(self.tasks_list)
+        vbox.addWidget(self.tasks_info)
         vbox.addLayout(hbox2)
-        vbox.addLayout(hbox3)
 
         # hbox = QHBoxLayout()
         # hbox.addWidget(self.calendar, 55)
@@ -144,16 +135,35 @@ class TimePlanner(QWidget):
         #self.setWindowFlag(Qt.Tool)
         #self.setWindowFlags(Qt.WA_TranslucentBackground)#Qt.FramelessWindowHint)
 
-    def show_tasks_list(self):
-        # Show Tasks
+    def populate_tasks_info_table(self, data):
+        # Update tasks_info table
         date = self.get_date()
-        self.tasks_list.clear()
-        for task in self.tasks:
-            self.tasks_list.addItem(task['name'])
+        self.tasks_info.clearContents()
+        self.tasks_info.setRowCount(len(data))
+
+        for row, task in enumerate(data):
+            name_item = QTableWidgetItem(task["name"])
+            total_time_item = QTableWidgetItem(task["total_time_spent"])
+            if date in task["today_time_spent"]:
+                today_time_item = QTableWidgetItem(task["today_time_spent"][date])
+            else:
+                today_time_item = QTableWidgetItem("-")
+            self.tasks_info.setItem(row, 0, name_item)
+            self.tasks_info.setItem(row, 1, total_time_item)
+            self.tasks_info.setItem(row, 2, today_time_item)
+
+    def handle_task_item_clicked(self, item):
+        # Clear previous selection
+        for row in range(self.tasks_info.rowCount()):
+            for col in range(self.tasks_info.columnCount()):
+                self.tasks_info.item(row, col).setSelected(False)
+        # Highlight the entire row
+        for col in range(self.tasks_info.columnCount()):
+            self.tasks_info.item(item.row(), col).setSelected(True)
 
     def add_task(self):
         date = self.get_date()
-        row = self.tasks_list.currentRow()
+        row = self.tasks_info.currentRow()
         title = "Add task"
         name, ok = QInputDialog.getText(self, " ", title)
 
@@ -168,20 +178,20 @@ class TimePlanner(QWidget):
                 'name' : name, 
                 'created' : QDateTime.currentMSecsSinceEpoch(),
                 'total_time_spent' : 0,
-                'time_spent_daily' : []
+                'today_time_spent' : []
             })
 
             item = QListWidgetItem(name)
             color = QColor(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
             item.setBackground(color)
-            self.tasks_list.addItem(item)
+            self.tasks_info.addItem(item)
             self.calendar.setDateTextFormat(QDate.fromString(date, "ddMMyyyy"), self.fmt)
 
     def remove_task(self):
         # delete the currently selected item
         date = self.get_date()
-        row = self.tasks_list.currentRow()
-        item = self.tasks_list.item(row)
+        row = self.tasks_info.currentRow()
+        item = self.tasks_info.item(row)
 
         if not item:
             return
@@ -189,7 +199,7 @@ class TimePlanner(QWidget):
                                      QMessageBox.Yes | QMessageBox.No)
 
         if reply == QMessageBox.Yes:
-            item = self.tasks_list.takeItem(row)
+            item = self.tasks_info.takeItem(row)
             self.tasks[date].remove(item.text())
             if not self.tasks[date]:
                 del(self.tasks[date])
@@ -199,8 +209,8 @@ class TimePlanner(QWidget):
     def edit_task(self):
         # edit the currently selected item
         date = self.get_date()
-        row = self.tasks_list.currentRow()
-        item = self.tasks_list.item(row)
+        row = self.tasks_info.currentRow()
+        item = self.tasks_info.item(row)
 
         if item:
             copy = item.text()
@@ -213,6 +223,14 @@ class TimePlanner(QWidget):
                 if string[0].isdigit() and string[0] not in ["0", "1", "2"]:
                     string = string.replace(string[0], "0" + string[0])
                 item.setText(string)
+
+
+    def update_current_task_time(self):
+        current_time = QTime.currentTime()
+        formatted_time = current_time.toString("hh:mm:ss")
+
+        for row in range(self.tasks_info.rowCount()):
+            self.tasks_info.item(row, 1).setText(formatted_time)
 
     def get_date(self):
         # Parse the selected date into usable string form
@@ -234,12 +252,8 @@ class TimePlanner(QWidget):
 
     def highlight_first_item(self):
         # highlight the first item immediately after switching selection
-        if self.tasks_list.count() > 0:
-            self.tasks_list.setCurrentRow(0)
-
-    def show_time(self):
-        # keep the current time updated
-        time = QTime.currentTime()
+        if self.tasks_info.count() > 0:
+            self.tasks_info.setCurrentRow(0)
 
     def show_calendar(self):
         pass
