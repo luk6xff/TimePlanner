@@ -17,7 +17,7 @@ TASKS_DATA_STORAGE=path.join(path.dirname(__file__), "tasks.json")
 CALENDAR_DATE_FORMAT="yyyyMMdd"
 
 class TimePlanner(QWidget):
-    # keep the current time as class variable for reference
+    # Keep the current time as class variable for reference
     current_day = str(datetime.now().day).rjust(2, '0')
     current_month = str(datetime.now().month).rjust(2, '0')
     current_year = str(datetime.now().year).rjust(2, '0')
@@ -59,10 +59,7 @@ class TimePlanner(QWidget):
         self.calendar.setGridVisible(True)
         self.calendar.selectionChanged.connect(lambda: self.populate_tasks_info_table(self.tasks))
         self.calendar.selectionChanged.connect(self.label_date)
-        self.calendar.selectionChanged.connect(self.highlight_first_item)
         self.calendar_displayed = False
-        # Don't allow going back to past months in calendar
-        #self.calendar.setMinimumDate(QDate(int(self.current_year), int(self.current_month), 1))
 
         # Format for dates in calendar that have tasks
         self.fmt = QTextCharFormat()
@@ -275,11 +272,6 @@ class TimePlanner(QWidget):
         week_day = select.addDays(weekday - 1).toString("dddd")
         word_month = select.toString("MMMM")
         self.label.setText(week_day + ", " + word_month + " " + day + ", " + year)
-
-    def highlight_first_item(self):
-        # highlight the first item immediately after switching selection
-        if self.tasks_info.count() > 0:
-            self.tasks_info.setCurrentRow(0)
 
     def show_calendar(self):
         if self.calendar_displayed:
