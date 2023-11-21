@@ -14,4 +14,5 @@ function Activate-VirtualEnvironment {
 Activate-VirtualEnvironment
 Remove-Item -Path build\* -Force -Recurse
 Remove-Item -Path dist\* -Force -Recurse
-pyinstaller main.py --onefile --noconfirm --clean --workpath=build --distpath=dist --windowed --name=TimePlanner.exe --icon=media\icon.ico
+Remove-Item -Path TimePlanner.exe.spec -Force -Recurse
+pyinstaller main.py --onefile --clean --workpath=build --distpath=dist --windowed --name=TimePlanner.exe --icon=media\icon.ico

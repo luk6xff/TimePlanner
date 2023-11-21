@@ -3,9 +3,9 @@ from datetime import datetime
 import json
 from PySide6.QtWidgets import (QApplication, QWidget, QCalendarWidget, QLabel,
                               QHBoxLayout, QPushButton, QVBoxLayout, QLineEdit,
-                              QListWidget, QMessageBox, QInputDialog,
+                              QMessageBox, QInputDialog,
                               QListWidgetItem, QTableWidget, QTableWidgetItem, QHeaderView)
-from PySide6.QtCore import QDate, QDateTime, Qt, QTimer, QTime, QSize
+from PySide6.QtCore import QDate, QDateTime, Qt, QTimer, QSize
 from PySide6 import QtGui
 from PySide6.QtGui import QTextCharFormat, QColor, QPixmap
 from stylesheet import STYLESHEET
@@ -13,7 +13,13 @@ from os import path
 import random
 
 
-TASKS_DATA_STORAGE=path.join(path.dirname(__file__), "tasks.json")
+# Determine if application is a script file or frozen exe
+if getattr(sys, 'frozen', False):
+    APP_PATH = path.dirname(sys.executable)
+elif __file__:
+    APP_PATH = path.dirname(__file__)
+
+TASKS_DATA_STORAGE=path.join(APP_PATH, "tasks.json")
 CALENDAR_DATE_FORMAT="yyyyMMdd"
 
 class TimePlanner(QWidget):
@@ -24,11 +30,9 @@ class TimePlanner(QWidget):
 
     def __init__(self, width, height):
         super().__init__()
-        folder = path.dirname(__file__)
-        self.icon_folder = path.join(folder, "media")
-
-        self.setWindowTitle("Planner")
-        self.setWindowIcon(QtGui.QIcon(path.join(self.icon_folder, 'icon.png')))
+        self.icon_folder = path.join(APP_PATH, "media")
+        self.setWindowTitle("TimePlanner")
+        self.setWindowIcon(QtGui.QIcon(path.join(self.icon_folder, 'icon.ico')))
 
         self.setGeometry(width // 6, height // 6, width // 3, height // 3)
         self.current_task_status = {
@@ -141,7 +145,7 @@ class TimePlanner(QWidget):
         self.setLayout(main_layout)
 
     def populate_tasks_info_table(self, data, clear=True):
-        # Update tasks_info table
+        ''' Update tasks_info table '''
         date = self.get_date()
         if clear:
             self.tasks_info.clearContents()
@@ -170,7 +174,6 @@ class TimePlanner(QWidget):
         # Start counting for newly selected task
         self.restart_current_task_time_counting()
 
-
     def add_task(self):
         date = self.get_date()
         title = "Add new task"
@@ -197,7 +200,6 @@ class TimePlanner(QWidget):
             self.populate_tasks_info_table(self.tasks)
             self.calendar.setDateTextFormat(QDate.fromString(date, CALENDAR_DATE_FORMAT), self.fmt)
     
-
     def remove_task(self):
         # Get the currently selected row
         current_row = self.tasks_info.currentRow()
@@ -210,7 +212,6 @@ class TimePlanner(QWidget):
                 del self.tasks[current_row]
                 self.tasks_info.removeRow(current_row)
                 self.current_task_status['index'] = -1
-
 
     def edit_task(self):
         # Get the currently selected row
@@ -226,6 +227,7 @@ class TimePlanner(QWidget):
                     item.setText(new_name)
 
     def restart_current_task_time_counting(self):
+        ''' Restart counting for a given task ''' 
         self.current_task_status['last_restart_time_secs'] = QDateTime.currentSecsSinceEpoch()
         self.current_task_status['last_total_time_secs'] = self.tasks[self.current_task_status['index']]['total_time_spent']
         date = self.get_date()
@@ -235,6 +237,7 @@ class TimePlanner(QWidget):
         self.update_current_task_time()
 
     def update_current_task_time(self):
+        ''' Update time of currently selected task '''
         date = self.get_date()
         if self.current_task_status['index'] > -1:
             self.tasks[self.current_task_status['index']]['total_time_spent'] = QDateTime.currentSecsSinceEpoch() - self.current_task_status['last_restart_time_secs'] + self.current_task_status['last_total_time_secs']
@@ -262,25 +265,22 @@ class TimePlanner(QWidget):
         return formatted_time
 
     def label_date(self):
-        # label to show the long name form of the selected date
-        # format US style like "Thursday, February 20, 2020"
+        # Label to show the selected date
         select = self.calendar.selectedDate()
-        weekday = select.dayOfWeek()
-        month = select.month()
         day = str(select.day())
         year = str(select.year())
-        week_day = select.addDays(weekday - 1).toString("dddd")
+        week_day = select.toString("dddd")
         word_month = select.toString("MMMM")
         self.label.setText(week_day + ", " + word_month + " " + day + ", " + year)
 
     def show_calendar(self):
+        # Display calendar widget
         if self.calendar_displayed:
             self.calendar_displayed = False
         else:
             self.calendar_displayed = True
         self.calendar.setVisible(self.calendar_displayed)
            
-
     def closeEvent(self, e):
         # Dump tasks data into json file when user closes app
         with open(TASKS_DATA_STORAGE, "w") as file:
@@ -291,9 +291,6 @@ class TimePlanner(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyleSheet(STYLESHEET)
-    # folder = path.dirname(__file__)
-    # icon_folder = path.join(folder, "media")
-    # app.setWindowIcon(QtGui.QIcon(path.join(icon_folder, 'icon.ico')))
     screen = app.primaryScreen()
     size = screen.size()
     window = TimePlanner(size.width(), size.height())

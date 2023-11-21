@@ -5,6 +5,8 @@ Simple time planner app
 ## Setup
 ```ps
 .\setup.ps1
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
 ```
 
 ## Build locally
