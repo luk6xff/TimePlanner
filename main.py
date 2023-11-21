@@ -57,11 +57,12 @@ class TimePlanner(QWidget):
         # Calendar
         self.calendar = QCalendarWidget()
         self.calendar.setGridVisible(True)
-        #self.calendar.selectionChanged.connect(self.populate_tasks_info_table(self.tasks)) #LU_TODO
+        self.calendar.selectionChanged.connect(lambda: self.populate_tasks_info_table(self.tasks))
         self.calendar.selectionChanged.connect(self.label_date)
         self.calendar.selectionChanged.connect(self.highlight_first_item)
-        # don't allow going back to past months in calendar
-        self.calendar.setMinimumDate(QDate(int(self.current_year), int(self.current_month), 1))
+        self.calendar_displayed = False
+        # Don't allow going back to past months in calendar
+        #self.calendar.setMinimumDate(QDate(int(self.current_year), int(self.current_month), 1))
 
         # Format for dates in calendar that have tasks
         self.fmt = QTextCharFormat()
@@ -98,7 +99,6 @@ class TimePlanner(QWidget):
         # Table widget
         self.tasks_info = QTableWidget()
         self.tasks_info.setColumnCount(3)
-        #self.tasks_info.setStyleSheet("QTableView::item {height: 40px;}")
         self.tasks_info.setHorizontalHeaderLabels(["Name", "Today's Time Spent", "Total Time Spent"])
         # Set the columns to stretch equally
         for i in range(self.tasks_info.columnCount()):
@@ -120,29 +120,28 @@ class TimePlanner(QWidget):
         self.timer.start(1000)
 
         # Layouts
-        hbox1 = QHBoxLayout()
-        hbox1.addStretch(1)
-        hbox1.addWidget(self.label)
-        hbox1.addStretch(1)
+        label_h_layout = QHBoxLayout()
+        label_h_layout.addStretch(1)
+        label_h_layout.addWidget(self.label)
+        label_h_layout.addStretch(1)
 
-        hbox2 = QHBoxLayout()
-        hbox2.addWidget(add_button)
-        hbox2.addWidget(edit_button)
-        hbox2.addWidget(del_button)
-        hbox2.addWidget(calendar_button)
+        buttons_h_layout = QHBoxLayout()
+        buttons_h_layout.addWidget(add_button)
+        buttons_h_layout.addWidget(edit_button)
+        buttons_h_layout.addWidget(del_button)
+        buttons_h_layout.addWidget(calendar_button)
 
         vbox = QVBoxLayout()
-        vbox.addLayout(hbox1)
+        vbox.addLayout(label_h_layout)
         vbox.addWidget(self.tasks_info)
-        vbox.addLayout(hbox2)
+        vbox.addLayout(buttons_h_layout)
 
-        # hbox = QHBoxLayout()
-        # hbox.addWidget(self.calendar, 55)
-        # hbox.addLayout(vbox, 45)
+        main_layout = QHBoxLayout()
+        main_layout.addWidget(self.calendar)
+        self.calendar.setVisible(False)
+        main_layout.addLayout(vbox)
 
-        self.setLayout(vbox)
-        #self.setWindowFlag(Qt.Tool)
-        #self.setWindowFlags(Qt.WA_TranslucentBackground)#Qt.FramelessWindowHint)
+        self.setLayout(main_layout)
 
     def populate_tasks_info_table(self, data, clear=True):
         # Update tasks_info table
@@ -261,7 +260,6 @@ class TimePlanner(QWidget):
         # Calculate hours, minutes, and seconds
         hours, remainder = divmod(timestamp_secs, 3600)
         minutes, seconds = divmod(remainder, 60)
-
         # Format the result as "hh:mm:ss"
         formatted_time = "{:02}:{:02}:{:02}".format(int(hours), int(minutes), int(seconds))
         return formatted_time
@@ -284,7 +282,12 @@ class TimePlanner(QWidget):
             self.tasks_info.setCurrentRow(0)
 
     def show_calendar(self):
-        pass
+        if self.calendar_displayed:
+            self.calendar_displayed = False
+        else:
+            self.calendar_displayed = True
+        self.calendar.setVisible(self.calendar_displayed)
+           
 
     def closeEvent(self, e):
         # Dump tasks data into json file when user closes app
