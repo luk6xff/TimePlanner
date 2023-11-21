@@ -14,6 +14,7 @@ import random
 
 
 TASKS_DATA_STORAGE=path.join(path.dirname(__file__), "tasks.json")
+CALENDAR_DATE_FORMAT="yyyyMMdd"
 
 class TimePlanner(QWidget):
     # keep the current time as class variable for reference
@@ -30,18 +31,26 @@ class TimePlanner(QWidget):
         self.setWindowIcon(QtGui.QIcon(path.join(self.icon_folder, 'icon.png')))
 
         self.setGeometry(width // 6, height // 6, width // 3, height // 3)
-        self.current_task_index = -1
+        self.current_task_status = {
+            'index' : -1,
+            'last_restart_time_secs' : 0,
+            'last_total_time_secs': 0,
+            'last_today_time_secs': 0
+        }
 
         # Check if tasks storage file exists, if it does load the data from it
         file_exists = path.isfile(TASKS_DATA_STORAGE)
-        if file_exists:
-            with open(TASKS_DATA_STORAGE, "r") as file:
-                self.tasks = json.load(file)
-        else:
-            self.tasks = []
+        try:
+            if file_exists:
+                with open(TASKS_DATA_STORAGE, "r") as file:
+                    self.tasks = json.load(file)
+            else:
+                self.tasks = []
+        except:
+            QMessageBox.critical(self, "Error while loading tasks list", f"The tasks file: {TASKS_DATA_STORAGE} is broken. Application has to be closed")
+            sys.exit(-1)
 
         print(f">>>>>>>>>>>self.tasks: {self.tasks}")
-        
         self.init_ui()
 
     def init_ui(self):
@@ -68,7 +77,7 @@ class TimePlanner(QWidget):
 
         # Mark current day in calendar
         current = self.current_day + self.current_month + self.current_year
-        self.calendar.setDateTextFormat(QDate.fromString(current, "ddMMyyyy"), cur_fmt)
+        self.calendar.setDateTextFormat(QDate.fromString(current, CALENDAR_DATE_FORMAT), cur_fmt)
 
         # Buttons
         add_button = QPushButton("Add Task")
@@ -107,7 +116,7 @@ class TimePlanner(QWidget):
 
         # QTimer to update the time every second
         self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_current_task_index_time)
+        self.timer.timeout.connect(self.update_current_task_time)
         self.timer.start(1000)
 
         # Layouts
@@ -135,22 +144,23 @@ class TimePlanner(QWidget):
         #self.setWindowFlag(Qt.Tool)
         #self.setWindowFlags(Qt.WA_TranslucentBackground)#Qt.FramelessWindowHint)
 
-    def populate_tasks_info_table(self, data):
+    def populate_tasks_info_table(self, data, clear=True):
         # Update tasks_info table
         date = self.get_date()
-        self.tasks_info.clearContents()
-        self.tasks_info.setRowCount(len(data))
+        if clear:
+            self.tasks_info.clearContents()
+            self.tasks_info.setRowCount(len(data))
 
         for row, task in enumerate(data):
             name_item = QTableWidgetItem(task["name"])
-            total_time_item = QTableWidgetItem(task["total_time_spent"])
             if date in task["today_time_spent"]:
-                today_time_item = QTableWidgetItem(task["today_time_spent"][date])
+                today_time_item = QTableWidgetItem(self.convert_secs_to_hh_mm_ss_format_string(task['today_time_spent'][date]))
             else:
                 today_time_item = QTableWidgetItem("-")
+            total_time_item = QTableWidgetItem(self.convert_secs_to_hh_mm_ss_format_string(task['total_time_spent']))
             self.tasks_info.setItem(row, 0, name_item)
-            self.tasks_info.setItem(row, 1, total_time_item)
-            self.tasks_info.setItem(row, 2, today_time_item)
+            self.tasks_info.setItem(row, 1, today_time_item)
+            self.tasks_info.setItem(row, 2, total_time_item)
 
     def handle_task_item_clicked(self, item):
         # Clear previous selection
@@ -160,11 +170,13 @@ class TimePlanner(QWidget):
         # Highlight the entire row
         for col in range(self.tasks_info.columnCount()):
             self.tasks_info.item(item.row(), col).setSelected(True)
-        self.current_task_index = item.row()
+        self.current_task_status['index'] = item.row()
+        # Start counting for newly selected task
+        self.restart_current_task_time_counting()
+
 
     def add_task(self):
         date = self.get_date()
-        row = self.tasks_info.rowCount() + 1
         title = "Add new task"
         name, ok = QInputDialog.getText(self, " ", title)
 
@@ -176,8 +188,8 @@ class TimePlanner(QWidget):
                     return False
             new_task = {
                 'name' : name, 
-                'created' : QDateTime.currentMSecsSinceEpoch(),
-                'today_time_spent' : [],
+                'created' : QDateTime.currentSecsSinceEpoch(),
+                'today_time_spent' : {},
                 'total_time_spent' : 0
             }
             self.tasks.append(new_task)
@@ -185,11 +197,9 @@ class TimePlanner(QWidget):
             item = QListWidgetItem(name)
             color = QColor(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
             item.setBackground(color)
-
             # Update all
             self.populate_tasks_info_table(self.tasks)
-
-            self.calendar.setDateTextFormat(QDate.fromString(date, "yyyyMMdd"), self.fmt)
+            self.calendar.setDateTextFormat(QDate.fromString(date, CALENDAR_DATE_FORMAT), self.fmt)
     
 
     def remove_task(self):
@@ -203,8 +213,7 @@ class TimePlanner(QWidget):
                 # Delete the row
                 del self.tasks[current_row]
                 self.tasks_info.removeRow(current_row)
-                self.current_task_index = -1
-
+                self.current_task_status['index'] = -1
 
 
     def edit_task(self):
@@ -220,18 +229,46 @@ class TimePlanner(QWidget):
                     self.tasks[current_row]['name'] = new_name
                     item.setText(new_name)
 
+    def restart_current_task_time_counting(self):
+        self.current_task_status['last_restart_time_secs'] = QDateTime.currentSecsSinceEpoch()
+        self.current_task_status['last_total_time_secs'] = self.tasks[self.current_task_status['index']]['total_time_spent']
+        date = self.get_date()
+        if date not in self.tasks[self.current_task_status['index']]['today_time_spent']:
+            self.tasks[self.current_task_status['index']]['today_time_spent'].update({date: 0})
+        self.current_task_status['last_today_time_secs'] = self.tasks[self.current_task_status['index']]['today_time_spent'][date]
+        self.update_current_task_time()
 
-    def update_current_task_index_time(self):
-        current_time = QTime.currentTime()
-        formatted_time = current_time.toString("hh:mm:ss")
-        if self.current_task_index > -1:
-            self.tasks_info.item(self.current_task_index, 1).setText(formatted_time)
+    def update_current_task_time(self):
+        date = self.get_date()
+        if self.current_task_status['index'] > -1:
+            self.tasks[self.current_task_status['index']]['total_time_spent'] = QDateTime.currentSecsSinceEpoch() - self.current_task_status['last_restart_time_secs'] + self.current_task_status['last_total_time_secs']
+            # Check if today stats exist for the task
+            if date in self.tasks[self.current_task_status['index']]['today_time_spent']:
+                print(f"The date {date} exists in the dict.")
+            else:
+                print(f"The date {date} does not exist in the dict.")
+            if date in self.tasks[self.current_task_status['index']]['today_time_spent']:
+                self.tasks[self.current_task_status['index']]['today_time_spent'][date] = QDateTime.currentSecsSinceEpoch() - self.current_task_status['last_restart_time_secs'] + self.current_task_status['last_today_time_secs']
+            else:
+                self.tasks[self.current_task_status['index']]['today_time_spent'].update({date: 0})
+            # Update UI
+            self.populate_tasks_info_table(self.tasks, clear=False)
 
     def get_date(self):
         # Parse the selected date into usable string form
         select = self.calendar.selectedDate()
         date = str(select.year()) + '-' + str(select.month()).rjust(2, '0') + '-' + str(select.day()).rjust(2, '0')
         return date
+    
+    @staticmethod
+    def convert_secs_to_hh_mm_ss_format_string(timestamp_secs: int):
+        # Calculate hours, minutes, and seconds
+        hours, remainder = divmod(timestamp_secs, 3600)
+        minutes, seconds = divmod(remainder, 60)
+
+        # Format the result as "hh:mm:ss"
+        formatted_time = "{:02}:{:02}:{:02}".format(int(hours), int(minutes), int(seconds))
+        return formatted_time
 
     def label_date(self):
         # label to show the long name form of the selected date
