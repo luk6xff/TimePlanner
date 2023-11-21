@@ -165,7 +165,7 @@ class TimePlanner(QWidget):
     def add_task(self):
         date = self.get_date()
         row = self.tasks_info.rowCount() + 1
-        title = "Add task"
+        title = "Add new task"
         name, ok = QInputDialog.getText(self, " ", title)
 
         if ok and name:
@@ -189,12 +189,12 @@ class TimePlanner(QWidget):
             # Update all
             self.populate_tasks_info_table(self.tasks)
 
-            self.calendar.setDateTextFormat(QDate.fromString(date, "ddMMyyyy"), self.fmt)
+            self.calendar.setDateTextFormat(QDate.fromString(date, "yyyyMMdd"), self.fmt)
     
+
     def remove_task(self):
         # Get the currently selected row
         current_row = self.tasks_info.currentRow()
-
         if current_row >= 0:
             # Ask for confirmation before deleting
             reply = QMessageBox.question(self, "Confirmation", f"Are you sure you want to remove permanently {self.tasks[current_row]['name']} task?",
@@ -208,22 +208,17 @@ class TimePlanner(QWidget):
 
 
     def edit_task(self):
-        # LU_TODO edit the currently selected item
-        date = self.get_date()
-        row = self.tasks_info.currentRow()
-        item = self.tasks_info.item(row)
-
-        if item:
-            copy = item.text()
-            title = "Edit task"
-            string, ok = QInputDialog.getText(self, " ", title,
-                                              QLineEdit.Normal, item.text())
-            if ok and string:
-                self.tasks[date].remove(copy)
-                self.tasks[date].append(string)
-                if string[0].isdigit() and string[0] not in ["0", "1", "2"]:
-                    string = string.replace(string[0], "0" + string[0])
-                item.setText(string)
+        # Get the currently selected row
+        current_row = self.tasks_info.currentRow()
+        if current_row >= 0:
+            item = self.tasks_info.item(current_row, 0)
+            if item:
+                title = "Edit task name"
+                new_name, ok = QInputDialog.getText(self, " ", title,
+                                                QLineEdit.Normal, item.text())
+                if ok and new_name:
+                    self.tasks[current_row]['name'] = new_name
+                    item.setText(new_name)
 
 
     def update_current_task_index_time(self):
@@ -231,8 +226,6 @@ class TimePlanner(QWidget):
         formatted_time = current_time.toString("hh:mm:ss")
         if self.current_task_index > -1:
             self.tasks_info.item(self.current_task_index, 1).setText(formatted_time)
-        #for row in range(self.tasks_info.rowCount()):
-        #    self.tasks_info.item(row, 1).setText(formatted_time)
 
     def get_date(self):
         # Parse the selected date into usable string form
