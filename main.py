@@ -30,7 +30,7 @@ class TimePlanner(QWidget):
         self.setWindowIcon(QtGui.QIcon(path.join(self.icon_folder, 'icon.png')))
 
         self.setGeometry(width // 6, height // 6, width // 3, height // 3)
-        self.current_task = 0
+        self.current_task = None
 
         # Check if tasks storage file exists, if it does load the data from it
         file_exists = path.isfile(TASKS_DATA_STORAGE)
@@ -160,6 +160,7 @@ class TimePlanner(QWidget):
         # Highlight the entire row
         for col in range(self.tasks_info.columnCount()):
             self.tasks_info.item(item.row(), col).setSelected(True)
+        self.current_task = item.row()
 
     def add_task(self):
         date = self.get_date()
@@ -191,7 +192,7 @@ class TimePlanner(QWidget):
             self.calendar.setDateTextFormat(QDate.fromString(date, "ddMMyyyy"), self.fmt)
 
     def remove_task(self):
-        # delete the currently selected item
+        #LU_TODO Delete the currently selected item
         date = self.get_date()
         row = self.tasks_info.currentRow()
         item = self.tasks_info.item(row)
@@ -210,7 +211,7 @@ class TimePlanner(QWidget):
             del(item)
 
     def edit_task(self):
-        # edit the currently selected item
+        # LU_TODO edit the currently selected item
         date = self.get_date()
         row = self.tasks_info.currentRow()
         item = self.tasks_info.item(row)
@@ -231,9 +232,10 @@ class TimePlanner(QWidget):
     def update_current_task_time(self):
         current_time = QTime.currentTime()
         formatted_time = current_time.toString("hh:mm:ss")
-
-        for row in range(self.tasks_info.rowCount()):
-            self.tasks_info.item(row, 1).setText(formatted_time)
+        if self.current_task:
+            self.tasks_info.item(self.current_task, 1).setText(formatted_time)
+        #for row in range(self.tasks_info.rowCount()):
+        #    self.tasks_info.item(row, 1).setText(formatted_time)
 
     def get_date(self):
         # Parse the selected date into usable string form
