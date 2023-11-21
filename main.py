@@ -30,7 +30,7 @@ class TimePlanner(QWidget):
         self.setWindowIcon(QtGui.QIcon(path.join(self.icon_folder, 'icon.png')))
 
         self.setGeometry(width // 6, height // 6, width // 3, height // 3)
-        self.current_task = None
+        self.current_task_index = -1
 
         # Check if tasks storage file exists, if it does load the data from it
         file_exists = path.isfile(TASKS_DATA_STORAGE)
@@ -76,7 +76,7 @@ class TimePlanner(QWidget):
         edit_button = QPushButton("Edit")
         edit_button.clicked.connect(self.edit_task)
         del_button = QPushButton("Delete")
-        del_button.clicked.connect(self.edit_task)
+        del_button.clicked.connect(self.remove_task)
         calendar_button = QPushButton("Calendar")
         pixmap = QPixmap(path.join(self.icon_folder, 'calendar.png'))
         size = QSize(16, 16)  # Adjust the size as needed
@@ -107,7 +107,7 @@ class TimePlanner(QWidget):
 
         # QTimer to update the time every second
         self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_current_task_time)
+        self.timer.timeout.connect(self.update_current_task_index_time)
         self.timer.start(1000)
 
         # Layouts
@@ -160,7 +160,7 @@ class TimePlanner(QWidget):
         # Highlight the entire row
         for col in range(self.tasks_info.columnCount()):
             self.tasks_info.item(item.row(), col).setSelected(True)
-        self.current_task = item.row()
+        self.current_task_index = item.row()
 
     def add_task(self):
         date = self.get_date()
@@ -190,25 +190,22 @@ class TimePlanner(QWidget):
             self.populate_tasks_info_table(self.tasks)
 
             self.calendar.setDateTextFormat(QDate.fromString(date, "ddMMyyyy"), self.fmt)
-
+    
     def remove_task(self):
-        #LU_TODO Delete the currently selected item
-        date = self.get_date()
-        row = self.tasks_info.currentRow()
-        item = self.tasks_info.item(row)
+        # Get the currently selected row
+        current_row = self.tasks_info.currentRow()
 
-        if not item:
-            return
-        reply = QMessageBox.question(self, " ", "Remove",
-                                     QMessageBox.Yes | QMessageBox.No)
+        if current_row >= 0:
+            # Ask for confirmation before deleting
+            reply = QMessageBox.question(self, "Confirmation", f"Are you sure you want to remove permanently {self.tasks[current_row]['name']} task?",
+                                         QMessageBox.Yes | QMessageBox.No)
+            if reply == QMessageBox.Yes:
+                # Delete the row
+                del self.tasks[current_row]
+                self.tasks_info.removeRow(current_row)
+                self.current_task_index = -1
 
-        if reply == QMessageBox.Yes:
-            item = self.tasks_info.takeItem(row)
-            self.tasks[date].remove(item.text())
-            if not self.tasks[date]:
-                del(self.tasks[date])
-                self.calendar.setDateTextFormat(QDate.fromString(date, "ddMMyyyy"), self.del_fmt)
-            del(item)
+
 
     def edit_task(self):
         # LU_TODO edit the currently selected item
@@ -229,11 +226,11 @@ class TimePlanner(QWidget):
                 item.setText(string)
 
 
-    def update_current_task_time(self):
+    def update_current_task_index_time(self):
         current_time = QTime.currentTime()
         formatted_time = current_time.toString("hh:mm:ss")
-        if self.current_task:
-            self.tasks_info.item(self.current_task, 1).setText(formatted_time)
+        if self.current_task_index > -1:
+            self.tasks_info.item(self.current_task_index, 1).setText(formatted_time)
         #for row in range(self.tasks_info.rowCount()):
         #    self.tasks_info.item(row, 1).setText(formatted_time)
 
@@ -273,6 +270,9 @@ class TimePlanner(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyleSheet(STYLESHEET)
+    folder = path.dirname(__file__)
+    icon_folder = path.join(folder, "icons")
+    app.setWindowIcon(QtGui.QIcon(path.join(icon_folder, 'icon.png')))
     screen = app.primaryScreen()
     size = screen.size()
     window = TimePlanner(size.width(), size.height())
